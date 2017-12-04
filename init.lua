@@ -142,7 +142,10 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	elseif name == "savepos_main" then
 		if fields.list then
-			selected = tonumber(fields.list:sub(5, 5))
+			temp = fields.list:sub(5)
+			local f = string.find(temp, ":")
+			local temp = temp:sub(1, f - 1)
+			selected = tonumber(temp)
 			if fields.list:sub(-1, -1) == "1" and fields.list:sub(1, 3) == "DCL" then
 				teleport(selected)
 			end
