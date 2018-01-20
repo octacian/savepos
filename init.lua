@@ -37,51 +37,63 @@ local function teleport(index)
 	end
 end
 
+local function check_error(message, error_message)
+	if error_message then
+		return minetest.colorize("red", error_message..":")
+	else
+		assert(message, "savepos: check_error: message is nil")
+		return message..":"
+	end
+end
+
 ---
 --- Formspec
 ---
 
-local function show_set()
+local function show_set(error)
 	local default = ""
 	local info = minetest.get_server_info()
 	if info and info.address ~= "" then
 		default = info.address..":"..info.port
 	end
 
+	local message = check_error("World Name", error)
 	minetest.show_formspec("savepos_set", [[
 		size[6,1]
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
-		field[0.15,0.2;6.4,1;name;World Name:;]]..default..[[]
+		field[0.15,0.2;6.4,1;name;]]..message..[[;]]..default..[[]
 		button[-0.1,0.65;2,1;done;Done]
 		button_exit[4.2,0.65;2,1;quit;Cancel]
 		field_close_on_enter[name;false]
 	]])
 end
 
-local function show_add()
+local function show_add(error)
+	local message = check_error("Position Name", error)
 	minetest.show_formspec("savepos_add", [[
 		size[6,1]
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
-		field[0.15,0.2;6.4,1;name;Position Name:;]
+		field[0.15,0.2;6.4,1;name;]]..message..[[;]
 		button[-0.1,0.65;2,1;done;Done]
 		button[4.2,0.65;2,1;quit;Cancel]
 		field_close_on_enter[name;false]
 	]])
 end
 
-local function show_edit(index)
+local function show_edit(index, error)
 	local list = minetest.deserialize(storage:get_string(worldname))
 
 	if list[index] then
+		local message = check_error("Edit Position Name", error)
 		local name = list[index].name or ""
 		edit_index = index
 		minetest.show_formspec("savepos_edit", [[
 			size[6,1]
 			bgcolor[#080808BB;true]
 			background[5,5;1,1;gui_formbg.png;true]
-			field[0.15,0.2;6.4,1;name;Edit Position Name:;]]..name..[[]
+			field[0.15,0.2;6.4,1;name;]]..message..[[;]]..name..[[]
 			button[-0.1,0.65;2,1;done;Done]
 			button[4.2,0.65;2,1;quit;Cancel]
 			field_close_on_enter[name;false]
@@ -172,6 +184,9 @@ minetest.register_on_formspec_input(function(name, fields)
 
 			-- Worldname saved, show main formspec
 			show_main()
+		elseif (fields.done or fields.key_enter_field == "name")
+				and fields.name == "" then
+			show_set("Worldname cannot be blank")
 		end
 	elseif name == "savepos_main" then
 		if fields.list then
@@ -208,10 +223,13 @@ minetest.register_on_formspec_input(function(name, fields)
 			local list = minetest.deserialize(storage:get_string(worldname))
 			list[#list + 1] = { pos = pos, name = fields.name }
 			storage:set_string(worldname, minetest.serialize(list))
+		elseif (fields.done or fields.key_enter_field == "name")
+				and fields.name == "" then
+			show_add("Position name cannot be blank")
 		end
 
-		if ((fields.done or fields.key_enter_field == "name") and
-				fields.name and fields.name ~= "") ~= "" or (fields.done or fields.quit) then
+		if ((fields.done or fields.key_enter_field == "name") and fields.name and
+				fields.name ~= "") or fields.quit then
 			show_main()
 		end
 	elseif name == "savepos_edit" then
@@ -220,10 +238,13 @@ minetest.register_on_formspec_input(function(name, fields)
 			local list = minetest.deserialize(storage:get_string(worldname))
 			list[edit_index].name = fields.name
 			storage:set_string(worldname, minetest.serialize(list))
+		elseif (fields.done or fields.key_enter_field == "name")
+				and fields.name == "" then
+			show_edit(edit_index, "Position name cannot be blank")
 		end
 
 		if ((fields.done or fields.key_enter_field == "name") and fields.name and
-				fields.name ~= "") or (fields.done or fields.quit) then
+				fields.name ~= "") or fields.quit then
 			show_main()
 		end
 	elseif name == "savepos_rst" then
