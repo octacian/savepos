@@ -40,16 +40,21 @@ end
 --- Formspec
 ---
 
-local function show_set(default)
-	default = default or ""
+local function show_set()
+	local default = ""
+	local info = minetest.get_server_info()
+	if info and info.address ~= "" then
+		default = info.address..":"..info.port
+	end
 
 	minetest.show_formspec("savepos_set", [[
 		size[6,1]
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
 		field[0.15,0.2;6.4,1;name;World Name:;]]..default..[[]
-		button_exit[-0.1,0.65;2,1;done;Done]
+		button[-0.1,0.65;2,1;done;Done]
 		button_exit[4.2,0.65;2,1;quit;Cancel]
+		field_close_on_enter[name;false]
 	]])
 end
 
@@ -77,11 +82,6 @@ local function show_confirm(name, text)
 end
 
 local function show_main()
-	if not worldname or worldname == "" then
-		show_set()
-		return
-	end
-
 	local list = minetest.deserialize(storage:get_string(worldname))
 	local text = ""
 	for _, i in ipairs(list) do
@@ -139,6 +139,9 @@ minetest.register_on_formspec_input(function(name, fields)
 			if not res or res == "" then
 				storage:set_string(worldname, minetest.serialize({}))
 			end
+
+			-- Worldname saved, show main formspec
+			show_main()
 		end
 	elseif name == "savepos_main" then
 		if fields.list then
@@ -213,18 +216,14 @@ minetest.register_on_formspec_input(function(name, fields)
 	end
 end)
 
-minetest.register_on_connect(function()
-	local info = minetest.get_server_info()
-	if not info or info.address == "" then
-		show_set()
-	else
-		show_set(info.address..":"..info.port)
-	end
-end)
-
 minetest.register_chatcommand("pos", {
 	description = "Set or teleport between positions",
 	func = function(param)
-		show_main()
+		-- If unset show set formspec, else show main.
+		if not worldname or worldname == "" then
+			show_set()
+		else
+			show_main()
+		end
 	end,
 })
