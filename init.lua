@@ -84,6 +84,7 @@ end
 local function show_main()
 	local list = minetest.deserialize(storage:get_string(worldname))
 	local text = ""
+	local count = #list or 0
 	for _, i in ipairs(list) do
 		local c
 		if _ ~= 1 then c = "," else c = "" end
@@ -106,6 +107,13 @@ local function show_main()
 		]]
 	end
 
+	local count_text = tostring(count)
+	if count < 10 then
+		count_text = " " .. count_text
+	elseif count >= 100 then
+		count_text = count_text .. " "
+	end
+
 	minetest.show_formspec("savepos_main", [[
 		size[6,8]
 		bgcolor[#080808BB;true]
@@ -116,6 +124,7 @@ local function show_main()
 
 		]]..action_buttons..[[
 
+		label[4.45,5.6;]]..count..[[ Positions]
 		button[4.2,6;2,1;rst;Reset]
 		tooltip[rst;Reset saves for ]]..worldname..[[]
 		button[4.2,6.75;2,1;rst_all;Reset All]
