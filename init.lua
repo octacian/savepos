@@ -174,8 +174,8 @@ minetest.register_on_formspec_input(function(name, fields)
 	if name == "savepos_set" then
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" then
-			worldname = fields.name
-			send("World name set to \""..worldname.."\"")
+			worldname = minetest.formspec_escape(fields.name)
+			send("World name set to \""..fields.name.."\"")
 
 			local res = storage:get_string(worldname)
 			if not res or res == "" then
@@ -221,7 +221,8 @@ minetest.register_on_formspec_input(function(name, fields)
 			local pos = vector.round(player:get_pos())
 
 			local list = minetest.deserialize(storage:get_string(worldname))
-			list[#list + 1] = { pos = pos, name = fields.name }
+			local name = minetest.formspec_escape(fields.name)
+			list[#list + 1] = { pos = pos, name = name }
 			storage:set_string(worldname, minetest.serialize(list))
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
@@ -236,7 +237,8 @@ minetest.register_on_formspec_input(function(name, fields)
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" and edit_index then
 			local list = minetest.deserialize(storage:get_string(worldname))
-			list[edit_index].name = fields.name
+			local name = minetest.formspec_escape(fields.name)
+			list[edit_index].name = name
 			storage:set_string(worldname, minetest.serialize(list))
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
