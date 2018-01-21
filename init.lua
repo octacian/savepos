@@ -2,7 +2,7 @@
 
 local worldname
 local selected = 1
-local edit_index
+local rename_index
 local storage  = minetest.get_mod_storage()
 
 local player
@@ -82,14 +82,14 @@ local function show_add(error)
 	]])
 end
 
-local function show_edit(index, error)
+local function show_rename(index, error)
 	local list = minetest.deserialize(storage:get_string(worldname))
 
 	if list[index] then
-		local message = check_error("Edit Position Name", error)
+		local message = check_error("Rename Position", error)
 		local name = list[index].name or ""
-		edit_index = index
-		minetest.show_formspec("savepos_edit", [[
+		rename_index = index
+		minetest.show_formspec("savepos_rename", [[
 			size[6,1]
 			bgcolor[#080808BB;true]
 			background[5,5;1,1;gui_formbg.png;true]
@@ -127,8 +127,8 @@ local function show_main()
 		tooltip[go;Teleport to selected position]
 		button[4.2,0.75;2,1;add;Add]
 		tooltip[add;Save current position]
-		button[4.2,1.5;2,1;edit;Edit]
-		tooltip[edit;Edit selected position]
+		button[4.2,1.5;2,1;rename;Rename]
+		tooltip[rename;Rename selected position]
 		button[4.2,2.25;2,1;remove;Remove]
 		tooltip[remove;Remove selected position]
 	]]
@@ -201,8 +201,8 @@ minetest.register_on_formspec_input(function(name, fields)
 			end
 		elseif fields.add then
 			show_add()
-		elseif fields.edit then
-			show_edit(selected)
+		elseif fields.rename then
+			show_rename(selected)
 		elseif fields.remove then
 			local list = minetest.deserialize(storage:get_string(worldname))
 			if list[selected] then
@@ -233,16 +233,16 @@ minetest.register_on_formspec_input(function(name, fields)
 				fields.name ~= "") or fields.quit then
 			show_main()
 		end
-	elseif name == "savepos_edit" then
+	elseif name == "savepos_rename" then
 		if (fields.done or fields.key_enter_field == "name") and
-				fields.name and fields.name ~= "" and edit_index then
+				fields.name and fields.name ~= "" and rename_index then
 			local list = minetest.deserialize(storage:get_string(worldname))
 			local name = minetest.formspec_escape(fields.name)
-			list[edit_index].name = name
+			list[rename_index].name = name
 			storage:set_string(worldname, minetest.serialize(list))
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
-			show_edit(edit_index, "Position name cannot be blank")
+			show_rename(rename_index, "New position name cannot be blank")
 		end
 
 		if ((fields.done or fields.key_enter_field == "name") and fields.name and
