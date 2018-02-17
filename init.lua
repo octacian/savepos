@@ -2,6 +2,7 @@
 
 local worldname
 local selected = 1
+local selected_map = {}
 local rename_index
 local storage  = minetest.get_mod_storage()
 
@@ -28,8 +29,13 @@ end
 
 local function teleport(index)
 	local list = minetest.deserialize(storage:get_string(worldname))
-	if list[index] then
-		local pos  = list[index].pos
+	local i = list[index]
+	if selected_map[index] and list[selected_map[index]] then
+		i = list[selected_map[index]]
+	end
+
+	if i then
+		local pos  = i.pos
 		local tpos = pos.x.." "..pos.y.." "..pos.z
 		minetest.run_server_chatcommand("teleport", tpos)
 	else
@@ -112,30 +118,38 @@ local function show_confirm(name, text)
 	]])
 end
 
-local function show_main()
+local function show_main(search)
+	selected_map = {}
 	local list = minetest.deserialize(storage:get_string(worldname))
 	local text = ""
 	local count = #list or 0
+	local added_index = 0
 	for _, i in ipairs(list) do
-		local c
-		if _ ~= 1 then c = "," else c = "" end
-		text = text..c..i.name.." "..minetest.pos_to_string(i.pos):gsub(",", " ")
+		if not search or (search and i.name:lower():find(search:lower())) then
+			added_index = added_index + 1
+			selected_map[added_index] = _
+			local c = ""
+			if text ~= "" then c = "," end
+			text = text..c..i.name.." "..minetest.pos_to_string(i.pos):gsub(",", " ")
+		end
 	end
 
 	local action_buttons = [[
-		button_exit[4.2,0;2,1;go;Go]
+		button_exit[4.2,0.75;2,1;go;Go]
 		tooltip[go;Teleport to selected position]
-		button[4.2,0.75;2,1;add;Add]
+		button[4.2,1.5;2,1;add;Add]
 		tooltip[add;Save current position]
-		button[4.2,1.5;2,1;rename;Rename]
+		button[4.2,2.25;2,1;rename;Rename]
 		tooltip[rename;Rename selected position]
-		button[4.2,2.25;2,1;remove;Remove]
+		button[4.2,3;2,1;remove;Remove]
 		tooltip[remove;Remove selected position]
 	]]
 
-	if next(list) == nil then
+	if text == "" and search then
+		action_buttons = ""
+	elseif text == "" or next(list) == nil then
 		action_buttons = [[
-			button[4.2,0;2,1;add;Add]
+			button[4.2,0.75;2,1;add;Add]
 			tooltip[add;Save current position]
 		]]
 	end
@@ -147,13 +161,19 @@ local function show_main()
 		count_text = count_text .. " "
 	end
 
+	search = search or ""
+
 	minetest.show_formspec("savepos_main", [[
 		size[6,8]
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
 
-		label[-0.1,-0.25;Saved Positions for ]]..worldname..[[:]
-		table[-0.11,0.12;4.2,8.13;list;]]..text..[[;]]..selected..[[]
+		label[-0.1,-0.33;Search ]]..worldname..[[:]
+		field[0.18,0.3;4.39,1;search;;]]..search..[[]
+		button[4.2,0;2,1;search_button;Search]
+		tooltip[search_button;Search saved positions]
+		table[-0.11,0.88;4.2,7.375;list;]]..text..[[;]]..selected..[[]
+		field_close_on_enter[search;false]
 
 		]]..action_buttons..[[
 
@@ -189,7 +209,14 @@ minetest.register_on_formspec_input(function(name, fields)
 			show_set("Worldname cannot be blank")
 		end
 	elseif name == "savepos_main" then
-		if fields.list then
+		if fields.search and (fields.key_enter_field == "search" or
+				fields.search_button) then
+			if not fields.search or fields.search == "" then
+				show_main()
+			else
+				show_main(fields.search)
+			end
+		elseif fields.list then
 			local e = fields.list:split(":")
 			selected = tonumber(e[2])
 			if e[1] == "DCL" and e[3] == "1" then
