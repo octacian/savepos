@@ -201,7 +201,7 @@ local function show_main(search)
 			selected_map[added_index] = _
 			local c = ""
 			if text ~= "" then c = "," end
-			text = text..c..i.name.." "..minetest.pos_to_string(i.pos):gsub(",", " ")
+			text = text..c..i.pos.x..","..i.pos.y..","..i.pos.z..","..i.name
 		end
 	end
 
@@ -243,6 +243,7 @@ local function show_main(search)
 		field[0.18,0.3;4.39,1;search;;]]..search..[[]
 		button[4.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
+		tablecolumns[text,width=2;text,width=2;text,width=2;text,width=20]
 		table[-0.11,0.88;4.2,7.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
