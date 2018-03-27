@@ -4,7 +4,7 @@ local worldname
 local selected = 1
 local selected_map = {}
 local rename_index
-local storage  = minetest.get_mod_storage()
+local storage = minetest.get_mod_storage()
 
 local player
 minetest.register_on_connect(function()
@@ -12,7 +12,7 @@ minetest.register_on_connect(function()
 end)
 
 ---
---- FUNCTIONS
+--- HELPERS
 ---
 
 local function renumber_table(t)
@@ -23,15 +23,87 @@ local function renumber_table(t)
     return result
 end
 
+local function get_listnames()
+	local l = storage:to_table()
+	local lists = {}
+	for _, i in pairs(l.fields) do
+		lists[#lists + 1] = _
+	end
+	return lists
+end
+
+local function list_exists(name)
+	local l = storage:to_table()
+	for _, i in pairs(l.fields) do
+		if _ == name then
+			return true
+		end
+	end
+end
+
+local function get_list(name)
+	return minetest.deserialize(storage:get_string(name)) or {}
+end
+
+local function set_list(name, value)
+	storage:set_string(name, minetest.serialize(value))
+end
+
+local function get_list_item(name, index)
+	local list = get_list(name)
+	if list[index] then
+		return list[index]
+	end
+end
+
+local function add_list_item(name, toadd) -- TEST ONWARDS
+	local list = get_list(name)
+	list[#list + 1] = toadd
+	set_list(name, list)
+end
+
+local function remove_list_item(name, index)
+	local list = get_list(name)
+	if list[index] then
+		list[index] = nil
+		list = renumber_table(list)
+		set_list(name, list)
+		return true
+	end
+end
+
+local function change_list_item(name, index, new)
+	local list = get_list(name)
+	if list[index] then
+		list[index] = new
+		set_list(name, list)
+	end
+end
+
+local function change_list_item_field(name, index, field, new)
+	local list = get_list(name)
+	if list[index] and list[index][field] then
+		list[index][field] = new
+		set_list(name, list)
+		return true
+	end
+end
+
+---
+--- FUNCTIONS
+---
+
 local function send(msg)
 	minetest.display_chat_message(minetest.colorize("red", "[SavePos]").." "..msg)
 end
 
 local function teleport(index)
-	local list = minetest.deserialize(storage:get_string(worldname))
-	local i = list[index]
+	local list = get_list(worldname)
+	local i
 	if selected_map[index] and list[selected_map[index]] then
 		i = list[selected_map[index]]
+	else
+		i = list[index]
 	end
 
 	if i then
@@ -89,11 +161,10 @@ local function show_add(error)
 end
 
 local function show_rename(index, error)
-	local list = minetest.deserialize(storage:get_string(worldname))
-
-	if list[index] then
+	local i = get_list_item(worldname, index)
+	if i then
 		local message = check_error("Rename Position", error)
-		local name = list[index].name or ""
+		local name = i.name or ""
 		rename_index = index
 		minetest.show_formspec("savepos_rename", [[
 			size[6,1]
@@ -120,7 +191,7 @@ end
 
 local function show_main(search)
 	selected_map = {}
-	local list = minetest.deserialize(storage:get_string(worldname))
+	local list = get_list(worldname)
 	local text = ""
 	local count = #list or 0
 	local added_index = 0
@@ -197,9 +268,8 @@ minetest.register_on_formspec_input(function(name, fields)
 			worldname = minetest.formspec_escape(fields.name)
 			send("World name set to \""..fields.name.."\"")
 
-			local res = storage:get_string(worldname)
-			if not res or res == "" then
-				storage:set_string(worldname, minetest.serialize({}))
+			if not list_exists(worldname) then
+				set_list(worldname, {})
 			end
 
 			-- Worldname saved, show main formspec
@@ -231,10 +301,10 @@ minetest.register_on_formspec_input(function(name, fields)
 		elseif fields.rename then
 			show_rename(selected)
 		elseif fields.remove then
-			local list = minetest.deserialize(storage:get_string(worldname))
-			if list[selected] then
+			local i = get_list_item(worldname, selected)
+			if i then
 				show_confirm("remove", "Are you sure you want to remove "
-					..list[selected].name.."?")
+					..i.name.."?")
 			end
 		elseif fields.rst then
 			show_confirm("rst", "Are you sure you want to reset saves for "
@@ -246,11 +316,8 @@ minetest.register_on_formspec_input(function(name, fields)
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" then
 			local pos = vector.round(player:get_pos())
-
-			local list = minetest.deserialize(storage:get_string(worldname))
 			local name = minetest.formspec_escape(fields.name)
-			list[#list + 1] = { pos = pos, name = name }
-			storage:set_string(worldname, minetest.serialize(list))
+			add_list_item(worldname, { pos = pos, name = name })
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
 			show_add("Position name cannot be blank")
@@ -263,10 +330,8 @@ minetest.register_on_formspec_input(function(name, fields)
 	elseif name == "savepos_rename" then
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" and rename_index then
-			local list = minetest.deserialize(storage:get_string(worldname))
 			local name = minetest.formspec_escape(fields.name)
-			list[rename_index].name = name
-			storage:set_string(worldname, minetest.serialize(list))
+			change_list_item_field(worldname, rename_index, "name", name)
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
 			show_rename(rename_index, "New position name cannot be blank")
@@ -278,7 +343,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	elseif name == "savepos_rst" then
 		if fields.yes then
-			storage:set_string(worldname, minetest.serialize({}))
+			set_list(worldname, {})
 		end
 
 		if fields.yes or fields.no then
@@ -296,10 +361,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	elseif name == "savepos_remove" then
 		if fields.yes then
-			local list = minetest.deserialize(storage:get_string(worldname))
-			list[selected] = nil
-			list = renumber_table(list)
-			storage:set_string(worldname, minetest.serialize(list))
+			remove_list_item(worldname, selected)
 			selected = 1
 			show_main()
 		end
