@@ -1,6 +1,6 @@
 -- savepos/init.lua
 
-local worldname
+local listname
 local selected = 1
 local selected_map = {}
 local rename_index
@@ -98,7 +98,7 @@ local function send(msg)
 end
 
 local function teleport(index)
-	local list = get_list(worldname)
+	local list = get_list(listname)
 	local i
 	if selected_map[index] and list[selected_map[index]] then
 		i = list[selected_map[index]]
@@ -135,7 +135,7 @@ local function show_set(error)
 		default = info.address..":"..info.port
 	end
 
-	local message = check_error("World Name", error)
+	local message = check_error("List Name", error)
 	minetest.show_formspec("savepos_set", [[
 		size[6,1]
 		bgcolor[#080808BB;true]
@@ -161,7 +161,7 @@ local function show_add(error)
 end
 
 local function show_rename(index, error)
-	local i = get_list_item(worldname, index)
+	local i = get_list_item(listname, index)
 	if i then
 		local message = check_error("Rename Position", error)
 		local name = i.name or ""
@@ -191,7 +191,7 @@ end
 
 local function show_main(search)
 	selected_map = {}
-	local list = get_list(worldname)
+	local list = get_list(listname)
 	local text = ""
 	local count = #list or 0
 	local added_index = 0
@@ -239,7 +239,7 @@ local function show_main(search)
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
 
-		label[-0.1,-0.33;Search ]]..worldname..[[:]
+		label[-0.1,-0.33;Search ]]..listname..[[:]
 		field[0.18,0.3;4.39,1;search;;]]..search..[[]
 		button[4.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search saved positions]
@@ -250,9 +250,9 @@ local function show_main(search)
 
 		label[4.45,5.6;]]..count..[[ Positions]
 		button[4.2,6;2,1;rst;Reset]
-		tooltip[rst;Reset saves for ]]..worldname..[[]
+		tooltip[rst;Reset saves for ]]..listname..[[]
 		button[4.2,6.75;2,1;rst_all;Reset All]
-		tooltip[rst_all;Reset saves for all worlds]
+		tooltip[rst_all;Reset saves for all lists]
 		button_exit[4.2,7.5;2,1;exit;Exit]
 	]])
 end
@@ -265,18 +265,18 @@ minetest.register_on_formspec_input(function(name, fields)
 	if name == "savepos_set" then
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" then
-			worldname = minetest.formspec_escape(fields.name)
-			send("World name set to \""..fields.name.."\"")
+			listname = minetest.formspec_escape(fields.name)
+			send("List name set to \""..fields.name.."\"")
 
-			if not list_exists(worldname) then
-				set_list(worldname, {})
+			if not list_exists(listname) then
+				set_list(listname, {})
 			end
 
-			-- Worldname saved, show main formspec
+			-- listname saved, show main formspec
 			show_main()
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
-			show_set("Worldname cannot be blank")
+			show_set("List name cannot be blank")
 		end
 	elseif name == "savepos_main" then
 		if fields.search and (fields.key_enter_field == "search" or
@@ -301,14 +301,14 @@ minetest.register_on_formspec_input(function(name, fields)
 		elseif fields.rename then
 			show_rename(selected)
 		elseif fields.remove then
-			local i = get_list_item(worldname, selected)
+			local i = get_list_item(listname, selected)
 			if i then
 				show_confirm("remove", "Are you sure you want to remove "
 					..i.name.."?")
 			end
 		elseif fields.rst then
 			show_confirm("rst", "Are you sure you want to reset saves for "
-					..worldname.."?")
+					..listname.."?")
 		elseif fields.rst_all then
 			show_confirm("rst_all", "Are you sure you want to reset all saves?")
 		end
@@ -317,7 +317,7 @@ minetest.register_on_formspec_input(function(name, fields)
 				fields.name and fields.name ~= "" then
 			local pos = vector.round(player:get_pos())
 			local name = minetest.formspec_escape(fields.name)
-			add_list_item(worldname, { pos = pos, name = name })
+			add_list_item(listname, { pos = pos, name = name })
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
 			show_add("Position name cannot be blank")
@@ -331,7 +331,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		if (fields.done or fields.key_enter_field == "name") and
 				fields.name and fields.name ~= "" and rename_index then
 			local name = minetest.formspec_escape(fields.name)
-			change_list_item_field(worldname, rename_index, "name", name)
+			change_list_item_field(listname, rename_index, "name", name)
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
 			show_rename(rename_index, "New position name cannot be blank")
@@ -343,7 +343,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	elseif name == "savepos_rst" then
 		if fields.yes then
-			set_list(worldname, {})
+			set_list(listname, {})
 		end
 
 		if fields.yes or fields.no then
@@ -352,7 +352,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	elseif name == "savepos_rst_all" then
 		if fields.yes then
 			local new_table = { fields = {} }
-			new_table.fields[worldname] = minetest.serialize({})
+			new_table.fields[listname] = minetest.serialize({})
 			storage:from_table(new_table)
 		end
 
@@ -361,7 +361,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	elseif name == "savepos_remove" then
 		if fields.yes then
-			remove_list_item(worldname, selected)
+			remove_list_item(listname, selected)
 			selected = 1
 			show_main()
 		end
@@ -376,7 +376,7 @@ minetest.register_chatcommand("pos", {
 	description = "Set or teleport between positions",
 	func = function(param)
 		-- If unset show set formspec, else show main.
-		if not worldname or worldname == "" then
+		if not listname or listname == "" then
 			show_set()
 		else
 			show_main()
