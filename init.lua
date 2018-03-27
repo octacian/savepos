@@ -148,7 +148,7 @@ local function show_set(error)
 end
 
 local function show_add(error)
-	local message = check_error("Position Name", error)
+	local message = check_error("Waypoint Name", error)
 	minetest.show_formspec("savepos_add", [[
 		size[6,1]
 		bgcolor[#080808BB;true]
@@ -163,7 +163,7 @@ end
 local function show_rename(index, error)
 	local i = get_list_item(listname, index)
 	if i then
-		local message = check_error("Rename Position", error)
+		local message = check_error("Rename Waypoint", error)
 		local name = i.name or ""
 		rename_index = index
 		minetest.show_formspec("savepos_rename", [[
@@ -207,13 +207,13 @@ local function show_main(search)
 
 	local action_buttons = [[
 		button_exit[4.2,0.75;2,1;go;Go]
-		tooltip[go;Teleport to selected position]
+		tooltip[go;Teleport to selected waypoint]
 		button[4.2,1.5;2,1;add;Add]
-		tooltip[add;Save current position]
+		tooltip[add;Save current position as a waypoint]
 		button[4.2,2.25;2,1;rename;Rename]
-		tooltip[rename;Rename selected position]
+		tooltip[rename;Rename selected waypoint]
 		button[4.2,3;2,1;remove;Remove]
-		tooltip[remove;Remove selected position]
+		tooltip[remove;Remove selected waypoint]
 	]]
 
 	if text == "" and search then
@@ -221,7 +221,7 @@ local function show_main(search)
 	elseif text == "" or next(list) == nil then
 		action_buttons = [[
 			button[4.2,0.75;2,1;add;Add]
-			tooltip[add;Save current position]
+			tooltip[add;Save current position as a waypoint]
 		]]
 	end
 
@@ -242,17 +242,17 @@ local function show_main(search)
 		label[-0.1,-0.33;Search ]]..listname..[[:]
 		field[0.18,0.3;4.39,1;search;;]]..search..[[]
 		button[4.2,0;2,1;search_button;Search]
-		tooltip[search_button;Search saved positions]
+		tooltip[search_button;Search waypoints]
 		table[-0.11,0.88;4.2,7.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
 		]]..action_buttons..[[
 
-		label[4.45,5.6;]]..count..[[ Positions]
+		label[4.45,5.6;]]..count..[[ Waypoints]
 		button[4.2,6;2,1;rst;Reset]
-		tooltip[rst;Reset saves for ]]..listname..[[]
+		tooltip[rst;Reset ]]..listname..[[ waypoint list]
 		button[4.2,6.75;2,1;rst_all;Reset All]
-		tooltip[rst_all;Reset saves for all lists]
+		tooltip[rst_all;Reset all waypoint lists]
 		button_exit[4.2,7.5;2,1;exit;Exit]
 	]])
 end
@@ -307,10 +307,10 @@ minetest.register_on_formspec_input(function(name, fields)
 					..i.name.."?")
 			end
 		elseif fields.rst then
-			show_confirm("rst", "Are you sure you want to reset saves for "
-					..listname.."?")
+			show_confirm("rst", "Are you sure you want to reset the "
+					..listname.." waypoint list?")
 		elseif fields.rst_all then
-			show_confirm("rst_all", "Are you sure you want to reset all saves?")
+			show_confirm("rst_all", "Are you sure you want to reset all waypoint lists?")
 		end
 	elseif name == "savepos_add" then
 		if (fields.done or fields.key_enter_field == "name") and
@@ -320,7 +320,7 @@ minetest.register_on_formspec_input(function(name, fields)
 			add_list_item(listname, { pos = pos, name = name })
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
-			show_add("Position name cannot be blank")
+			show_add("Waypoint name cannot be blank")
 		end
 
 		if ((fields.done or fields.key_enter_field == "name") and fields.name and
@@ -334,7 +334,7 @@ minetest.register_on_formspec_input(function(name, fields)
 			change_list_item_field(listname, rename_index, "name", name)
 		elseif (fields.done or fields.key_enter_field == "name")
 				and fields.name == "" then
-			show_rename(rename_index, "New position name cannot be blank")
+			show_rename(rename_index, "New waypoint name cannot be blank")
 		end
 
 		if ((fields.done or fields.key_enter_field == "name") and fields.name and
@@ -373,7 +373,7 @@ minetest.register_on_formspec_input(function(name, fields)
 end)
 
 minetest.register_chatcommand("pos", {
-	description = "Set or teleport between positions",
+	description = "Set or teleport between waypoints",
 	func = function(param)
 		-- If unset show set formspec, else show main.
 		if not listname or listname == "" then
