@@ -55,12 +55,12 @@ local function set_list(name, value)
 end
 
 --[local function] Get the item at a particular indice of a list
-local function get_list_item(name, index)
+--[[local function get_list_item(name, index)
 	local list = get_list(name)
 	if list[index] then
 		return list[index]
 	end
-end
+end]]
 
 --[local function] Add an item to a list
 local function add_list_item(name, toadd)
@@ -118,16 +118,22 @@ local function send(msg)
 	minetest.display_chat_message(minetest.colorize("red", "[SavePos]").." "..msg)
 end
 
---[local function] Get the item at a particular indice in a list based off of the selected map
-local function get_mapped(list, index)
+--[local function] Process any particular indice against the selection map
+local function get_mapped_indice(list, index)
 	local i
 	if selected_map[index] and list[selected_map[index]] then
-		i = list[selected_map[index]]
+		i = selected_map[index]
 	else
-		i = list[index]
+		i = index
 	end
 
 	return i
+end
+
+--[local function] Get the item at a particular indice in a list based off of the selected map
+-- Shorthand for: i = list[get_mapped_indice(list, selected)]
+local function get_mapped(list, index)
+	return list[get_mapped_indice(list, index)]
 end
 
 --[local function] Teleport to the position at a particular indice of the current list
@@ -513,7 +519,7 @@ minetest.register_on_formspec_input(function(name, fields)
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name)
 		-- Trigger confirmation to remove a waypoint
 		elseif fields.remove then
-			local i = get_list_item(listname, selected)
+			local i = get_mapped(get_list(listname), selected)
 			if i then
 				show_confirm("remove", "Are you sure you want to remove "
 					..i.name.."?")
@@ -542,7 +548,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	elseif name == "savepos_rename_waypoint" then
 		handle_field("name", fields, function()
 			local n = minetest.formspec_escape(fields.name)
-			change_list_item_field(listname, selected, "name", n)
+			change_list_item_field(listname, get_mapped_indice(get_list(listname), selected), "name", n)
 		end, function()
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name,
 				"New waypoint name cannot be blank")
@@ -552,7 +558,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle remove waypoint confirmation
 	elseif name == "savepos_confirm_remove" then
 		handle_confirm(fields, function()
-			remove_list_item(listname, selected)
+			remove_list_item(listname, get_mapped_indice(get_list(listname), selected))
 			selected = 1
 			show_main()
 		end, nil, function()
