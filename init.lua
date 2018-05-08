@@ -331,6 +331,7 @@ end
 --[local function] Show main waypoint list management formspec
 local function show_main(search)
 	selected_map = {} -- Reset selection map
+	local pos = player:get_pos()
 	local list = get_list(listname) -- Get current list items
 	local text = ""
 	local count = #list or 0
@@ -342,7 +343,8 @@ local function show_main(search)
 			selected_map[added_index] = _
 			local c = ""
 			if text ~= "" then c = "," end
-			text = text..c..i.pos.x..","..i.pos.y..","..i.pos.z..","..minetest.formspec_escape(i.name)
+			local dist = tostring(math.floor(vector.distance(pos, i.pos)))
+			text = text..c..dist.."m,"..i.pos.x..","..i.pos.y..","..i.pos.z..","..minetest.formspec_escape(i.name)
 		end
 	end
 
@@ -387,7 +389,7 @@ local function show_main(search)
 		field[0.18,0.3;6.39,1;search;;]]..search..[[]
 		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
-		tablecolumns[text,width=2;text,width=2;text,width=2;text,width=20]
+		tablecolumns[text,width=2;text,width=2;text,width=2;text,width=2;text,width=20]
 		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
