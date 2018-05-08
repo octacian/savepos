@@ -102,7 +102,7 @@ end
 --[local function] Get the string to be prepended to the beginning of each formspec
 -- Defines formspec size, background colour, and background image (from Minetest Game).
 local function get_prepend_string(x, y)
-	x, y = tonumber(x) or "6", tonumber(y) or "8"
+	x, y = tonumber(x) or "8", tonumber(y) or "10"
 	return "size["..x..","..y.."]" .. [[
 		bgcolor[#080808BB;true]
 		background[5,5;1,1;gui_formbg.png;true]
@@ -260,13 +260,13 @@ local function show_lists(search)
 	end
 
 	local action_buttons = [[
-		button[4.2,0.75;2,1;use;Use]
+		button[6.2,0.75;2,1;use;Use]
 		tooltip[use;Use selected list]
-		button[4.2,1.5;2,1;add;Add]
+		button[6.2,1.5;2,1;add;Add]
 		tooltip[add;Create a new list]
-		button[4.2,2.25;2,1;rename;Rename]
+		button[6.2,2.25;2,1;rename;Rename]
 		tooltip[rename;Rename selected list]
-		button[4.2,3;2,1;remove;Remove]
+		button[6.2,3;2,1;remove;Remove]
 		tooltip[remove;Remove selected list]
 	]]
 
@@ -276,30 +276,30 @@ local function show_lists(search)
 	-- elseif there is nothing to display, limit action buttons
 	elseif text == "" or next(lists) == nil then
 		action_buttons = [[
-			button[4.2,0.75;2,1;add;Add]
+			button[6.2,0.75;2,1;add;Add]
 			tooltip[add;Save current position as a waypoint]
 		]]
 	end
 
 	search = search or ""
 	-- Show formspec
-	minetest.show_formspec("savepos_lists", get_prepend_string(6, 8) .. [[
+	minetest.show_formspec("savepos_lists", get_prepend_string(8, 10) .. [[
 		label[-0.1,-0.33;Search Lists:]
-		field[0.18,0.3;4.39,1;search;;]]..search..[[]
-		button[4.2,0;2,1;search_button;Search]
+		field[0.18,0.3;6.39,1;search;;]]..search..[[]
+		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
-		table[-0.11,0.88;4.2,7.375;list;]]..text..[[;]]..selected..[[]
+		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
 		]]..action_buttons..[[
 
-		label[4.5,5.2;]]..count..[[ Lists]
-		label[4.45,5.6;]]..waypoint_count..[[ Waypoints]
-		button[4.2,6;2,1;rst;Reset]
+		label[6.5,7.2;]]..count..[[ Lists]
+		label[6.45,7.6;]]..waypoint_count..[[ Waypoints]
+		button[6.2,8;2,1;rst;Reset]
 		tooltip[rst;Reset selected waypoint list]
-		button[4.2,6.75;2,1;rst_all;Reset All]
+		button[6.2,8.75;2,1;rst_all;Reset All]
 		tooltip[rst_all;Reset all waypoint lists]
-		button_exit[4.2,7.5;2,1;exit;Exit]
+		button_exit[6.2,9.5;2,1;exit;Exit]
 	]])
 end
 
@@ -327,13 +327,13 @@ local function show_main(search)
 	end
 
 	local action_buttons = [[
-		button_exit[4.2,0.75;2,1;go;Go]
+		button_exit[6.2,0.75;2,1;go;Go]
 		tooltip[go;Teleport to selected waypoint]
-		button[4.2,1.5;2,1;add;Add]
+		button[6.2,1.5;2,1;add;Add]
 		tooltip[add;Save current position as a waypoint]
-		button[4.2,2.25;2,1;rename;Rename]
+		button[6.2,2.25;2,1;rename;Rename]
 		tooltip[rename;Rename selected waypoint]
-		button[4.2,3;2,1;remove;Remove]
+		button[6.2,3;2,1;remove;Remove]
 		tooltip[remove;Remove selected waypoint]
 	]]
 
@@ -343,30 +343,30 @@ local function show_main(search)
 	-- elseif there is nothing to display, limit action buttons
 	elseif text == "" or next(list) == nil then
 		action_buttons = [[
-			button[4.2,0.75;2,1;add;Add]
+			button[6.2,0.75;2,1;add;Add]
 			tooltip[add;Save current position as a waypoint]
 		]]
 	end
 
 	search = search or ""
 	-- Show formspec
-	minetest.show_formspec("savepos_main", get_prepend_string(6, 8) .. [[
+	minetest.show_formspec("savepos_main", get_prepend_string(8, 10) .. [[
 		label[-0.1,-0.33;Search ]]..listname..[[:]
-		field[0.18,0.3;4.39,1;search;;]]..search..[[]
-		button[4.2,0;2,1;search_button;Search]
+		field[0.18,0.3;6.39,1;search;;]]..search..[[]
+		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
 		tablecolumns[text,width=2;text,width=2;text,width=2;text,width=20]
-		table[-0.11,0.88;4.2,7.375;list;]]..text..[[;]]..selected..[[]
+		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
 		]]..action_buttons..[[
 
-		label[4.45,5.6;]]..count..[[ Waypoints]
-		button[4.2,6;2,1;rst;Reset]
+		label[6.45,7.6;]]..count..[[ Waypoints]
+		button[6.2,8;2,1;rst;Reset]
 		tooltip[rst;Reset ]]..listname..[[ waypoint list]
-		button[4.2,6.75;2,1;change;Change]
+		button[6.2,8.75;2,1;change;Change]
 		tooltip[change;Change current list]
-		button_exit[4.2,7.5;2,1;exit;Exit]
+		button_exit[6.2,9.5;2,1;exit;Exit]
 	]])
 end
 
