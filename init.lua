@@ -103,10 +103,16 @@ end
 -- Defines formspec size, background colour, and background image (from Minetest Game).
 local function get_prepend_string(x, y)
 	x, y = tonumber(x) or "8", tonumber(y) or "10"
-	return "size["..x..","..y.."]" .. [[
-		bgcolor[#080808BB;true]
+	local background = [[
 		background[5,5;1,1;gui_formbg.png;true]
+		bgcolor[#080808BB;true]
 	]]
+
+	if storage:get_string("__background") == "false" then
+		background = ""
+	end
+
+	return "size["..x..","..y.."]" .. background
 end
 
 ---
@@ -201,22 +207,24 @@ local function show_rename(name, title, default, error)
 end
 
 --[local function] Check the validity of a particular text-input field
-local function handle_field(fieldname, fields, valid, invalid, quit)
+local function handle_field(fieldname, fields, valid, invalid, cancel, after)
+	local v
 	-- if submitted and not blank, call valid
 	if (fields.done or fields.key_enter_field == fieldname) and
 			fields[fieldname] and fields[fieldname] ~= "" then
-		if type(valid) == "function" then valid(fields) end
+		if type(valid) == "function" then valid() end
+		v = true
 	-- elseif submitted and blank, call invalid
 	elseif (fields.done or fields.key_enter_field == "name")
 			and fields[fieldname] == "" then
-		if type(invalid) == "function" then invalid(fields) end
+		if type(invalid) == "function" then invalid() end
+	-- elseif cancel is pressed, call cancel
+	elseif fields.quit then
+		if type(cancel) == "function" then cancel() end
 	end
 
-	-- if valid or quit is pressed, call quit
-	if ((fields.done or fields.key_enter_field == fieldname) and fields[fieldname] and
-			fields[fieldname] ~= "") or fields.quit then
-		if type(quit) == "function" then quit(fields) end
-	end
+	-- Call after once everything else is done
+	if type(after) == "function" then after(v) end
 end
 
 --[local function] Process results from the basic confirmation formspec
@@ -249,20 +257,22 @@ local function show_lists(search)
 	-- Build selection map and format text for use in a table
 	for _, i in ipairs(lists) do
 		if not search or (search and i:lower():find(search:lower())) then
-			added_index = added_index + 1
-			selected_map[added_index] = _
-			local c = ""
-			if text ~= "" then c = "," end
+			if i:sub(1, 2) ~= "__" then
+				added_index = added_index + 1
+				selected_map[added_index] = _
+				local c = ""
+				if text ~= "" then c = "," end
 
-			local wcount = #get_list(i) -- Get waypoint count
-			local waypoint_count_text = "Waypoints"
-			-- Use singular form of count text if only 1 waypoint
-			if wcount == 1 then
-				waypoint_count_text = "Waypoint"
+				local wcount = #get_list(i) -- Get waypoint count
+				local waypoint_count_text = "Waypoints"
+				-- Use singular form of count text if only 1 waypoint
+				if wcount == 1 then
+					waypoint_count_text = "Waypoint"
+				end
+
+				waypoint_count = waypoint_count + wcount
+				text = text..c..wcount.." "..waypoint_count_text..","..minetest.formspec_escape(i)
 			end
-
-			waypoint_count = waypoint_count + wcount
-			text = text..c..wcount.." "..waypoint_count_text..","..minetest.formspec_escape(i)
 		end
 	end
 
@@ -450,23 +460,33 @@ minetest.register_on_formspec_input(function(name, fields)
 		end
 	-- Handle add list formspec submission
 	elseif name == "savepos_add_list" then
-		handle_field("name", fields, function() -- Valid
-			set_list(fields.name, {})
-		end, function() -- Invalid
+		handle_field("name", fields, function() -- Valid (not blank)
+			if fields.name:sub(1, 2) ~= "__" then
+				set_list(fields.name, {})
+				show_lists()
+			else
+				show_add("list", "List Name", fields.name, "List name cannot begin with __")
+			end
+		end, function() -- Invalid (blank)
 			show_add("list", "List Name", nil, "List name cannot be blank")
-		end, function() -- Cancel
+		end, function() -- Quit (Cancel pressed)
 			show_lists()
 		end)
 	-- Handle rename list formspec submission
 	elseif name == "savepos_rename_list" then
-		handle_field("name", fields, function() -- Valid
-			local original = get_mapped(get_listnames(), selected)
-			local list = get_list(original)
-			set_list(fields.name, list)
-			set_list(original, nil)
-		end, function() -- Invalid
-			show_add("list", "List Name", nil, "List name cannot be blank")
-		end, function() -- Cancel
+		handle_field("name", fields, function() -- Valid (not blank)
+			if fields.name:sub(1, 2) ~= "__" then
+				local original = get_mapped(get_listnames(), selected)
+				local list = get_list(original)
+				set_list(fields.name, list)
+				set_list(original, nil)
+				show_lists()
+			else
+				show_rename("list", "List Name", fields.name, "List name cannot begin with __")
+			end
+		end, function() -- Invalid (blank)
+			show_rename("list", "List Name", get_mapped(get_listnames(), selected), "List name cannot be blank")
+		end, function() -- Quit (Cancel pressed)
 			show_lists()
 		end)
 	-- Handle remove list confirmation
@@ -543,8 +563,8 @@ minetest.register_on_formspec_input(function(name, fields)
 			add_list_item(listname, { pos = pos, name = fields.name })
 		end, function()
 			show_add("waypoint", "Waypoint Name", nil, "Waypoint name cannot be blank")
-		end, function()
-			show_main()
+		end, function() show_main() end, function(valid)
+			if valid then show_main() end
 		end)
 	-- Handle rename waypoint formspec submission
 	elseif name == "savepos_rename_waypoint" then
@@ -553,8 +573,8 @@ minetest.register_on_formspec_input(function(name, fields)
 		end, function()
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name,
 				"New waypoint name cannot be blank")
-		end, function()
-			show_main()
+		end, function() show_main() end, function(valid)
+			if valid then show_main() end
 		end)
 	-- Handle remove waypoint confirmation
 	elseif name == "savepos_confirm_remove" then
@@ -581,12 +601,38 @@ end)
 
 minetest.register_chatcommand("pos", {
 	description = "Set or teleport between waypoints",
+	params = "help | background <true/false>",
 	func = function(param)
-		-- If unset show set formspec, else show main.
-		if not listname or listname == "" then
-			show_lists()
+		if param == "" or not param then
+			-- If unset show set formspec, else show main.
+			if not listname or listname == "" then
+				show_lists()
+			else
+				show_main()
+			end
+		elseif param == "help" then
+			local function c(str)
+				return minetest.colorize("cyan", str)
+			end
+
+			return true, c(".pos").." | Open GUI\n" ..
+				c(".pos help").." | Display help\n" ..
+				c(".pos background <true/false>").." | Enable or disable image background for formspecs"
 		else
-			show_main()
+			param = param:split(" ")
+			if param[1] == "background" and param[2] and
+					param[2] == "true" or param[2] == "false" then
+				storage:set_string("__background", param[2])
+				return true, "Set background to "..param[2].."."
+			elseif param[1] == "background" and not param[2] then
+				if storage:get_string("__background") == "false" then
+					return true, "Formspec background image disabled."
+				else
+					return true, "Formspec background image enabled."
+				end
+			else
+				return false, "Invalid parameters, try .pos help"
+			end
 		end
 	end,
 })
