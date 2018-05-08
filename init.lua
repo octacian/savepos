@@ -92,7 +92,7 @@ end]]--
 --[local function] Change a particular field of an item in a list
 local function change_list_item_field(name, index, field, new)
 	local list = get_list(name)
-	if list[index] and list[index][field] then
+	if list[index] then
 		list[index][field] = new
 		set_list(name, list)
 		return true
@@ -165,6 +165,35 @@ local function check_error(message, error_message)
 		assert(message, "savepos: check_error: message is nil")
 		return message..":"
 	end
+end
+
+--[local function] Check if a hexidecimal color string is valid
+local function check_color(str)
+	if type(str) ~= "string" or (#str ~= 7 and #str ~= 4) or str:sub(1, 1) ~= "#" then
+		return
+	end
+
+	local valid_characters = {
+		"0", "1", "2", "3", "4", "5", "6", "7",
+		"8", "9", "a", "b", "c", "d", "e", "f"
+	}
+
+	str = str:lower()
+	for i = 2, #str do
+		local valid
+		for k = 1, #valid_characters do
+			if valid_characters[k] == str:sub(i, i) then
+				valid = true
+				break
+			end
+		end
+
+		if not valid then
+			return
+		end
+	end
+
+	return true
 end
 
 ---
@@ -354,7 +383,9 @@ local function show_main(search)
 			local c = ""
 			if text ~= "" then c = "," end
 			local dist = tostring(math.floor(vector.distance(pos, i.pos)))
-			text = text..c..dist.."m,"..i.pos.x..","..i.pos.y..","..i.pos.z..","..minetest.formspec_escape(i.name)
+			local color = i.color or "#ffffff"
+			text = text..c..color..","..dist.."m,"..i.pos.x..","..i.pos.y..","..
+				i.pos.z..","..minetest.formspec_escape(i.name)
 		end
 	end
 
@@ -378,6 +409,8 @@ local function show_main(search)
 		tooltip[rename;Rename selected waypoint]
 		button[6.2,3;2,1;remove;Remove]
 		tooltip[remove;Remove selected waypoint]
+		button[6.2,3.75;2,1;color;Color]
+		tooltip[color;Set color of selected waypoint]
 	]]
 
 	-- if nothing to display and there is text in the search bar, hide action buttons
@@ -399,7 +432,7 @@ local function show_main(search)
 		field[0.18,0.3;6.39,1;search;;]]..search..[[]
 		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
-		tablecolumns[text,width=2;text,width=2;text,width=2;text,width=2;text,width=20]
+		tablecolumns[color;text,width=2;text,width=2;text,width=2;text,width=2;text,width=20]
 		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
@@ -547,6 +580,10 @@ minetest.register_on_formspec_input(function(name, fields)
 				show_confirm("remove", "Are you sure you want to remove "
 					..i.name.."?")
 			end
+		-- Trigger formspec to set the color of a waypoint
+		elseif fields.color then
+			local color = get_mapped(get_list(listname), selected).color
+			show_add("color", "Hex Color Value", color)
 		-- Trigger confirmation to reset the current list
 		elseif fields.rst then
 			show_confirm("rst", "Are you sure you want to reset the "
@@ -585,6 +622,23 @@ minetest.register_on_formspec_input(function(name, fields)
 		end, nil, function()
 			show_main()
 		end)
+	-- Handle set color formspec submission
+	elseif name == "savepos_add_color" then
+		handle_field("name", fields, function() -- Valid
+			if fields.name:sub(1, 1) ~= "#" then
+				fields.name = "#"..fields.name
+			end
+
+			if check_color(fields.name) then
+				change_list_item_field(listname, get_mapped_indice(get_list(listname), selected),
+					"color", fields.name)
+				show_main()
+			else
+				show_add("color", "Hex Color Value", fields.name, "Invalid hex color value")
+			end
+		end, function() -- Invalid
+			show_add("color", "Hex Color Value", fields.name, "Color value cannot be blank")
+		end, function() show_main() end)
 	-- Handle reset list confirmation
 	elseif name == "savepos_confirm_rst" then
 		handle_confirm(fields, function()
