@@ -167,8 +167,10 @@ end
 
 --[local function] Confirmation formspec
 local function show_confirm(name, text)
+	text = table.concat(minetest.wrap_text(text, 40, true), ",")
 	minetest.show_formspec("savepos_confirm_"..name, get_prepend_string(6, 1) .. [[
-		label[0,0;]]..text..[[]
+		tableoptions[background=#00000000;highlight=#00000000;border=false]
+		table[-0.13,-0.3;6.1,1;title;]]..text..[[;1]
 		button[-0.1,0.65;2,1;yes;Yes]
 		button[4.2,0.65;2,1;no;No]
 	]])
