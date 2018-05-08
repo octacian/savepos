@@ -167,7 +167,7 @@ end
 
 --[local function] Confirmation formspec
 local function show_confirm(name, text)
-	text = table.concat(minetest.wrap_text(text, 40, true), ",")
+	text = table.concat(minetest.wrap_text(minetest.formspec_escape(text), 40, true), ",")
 	minetest.show_formspec("savepos_confirm_"..name, get_prepend_string(6, 1) .. [[
 		tableoptions[background=#00000000;highlight=#00000000;border=false]
 		table[-0.13,-0.3;6.1,1;title;]]..text..[[;1]
@@ -178,7 +178,7 @@ end
 
 --[local function] Add formspec (basic single field)
 local function show_add(name, title, default, error)
-	default = default or ""
+	default = minetest.formspec_escape(default) or ""
 	local message = check_error(title, error)
 	minetest.show_formspec("savepos_add_"..name, get_prepend_string(6, 1) .. [[
 		field[0.15,0.2;6.4,1;name;]]..message..[[;]]..default..[[]
@@ -190,7 +190,7 @@ end
 
 --[local function] Rename formspec
 local function show_rename(name, title, default, error)
-	default = default or ""
+	default = minetest.formspec_escape(default) or ""
 	local message = check_error(title, error)
 	minetest.show_formspec("savepos_rename_"..name, get_prepend_string(6, 1) .. [[
 		field[0.15,0.2;6.4,1;name;]]..message..[[;]]..default..[[]
@@ -342,7 +342,7 @@ local function show_main(search)
 			selected_map[added_index] = _
 			local c = ""
 			if text ~= "" then c = "," end
-			text = text..c..i.pos.x..","..i.pos.y..","..i.pos.z..","..i.name
+			text = text..c..i.pos.x..","..i.pos.y..","..i.pos.z..","..minetest.formspec_escape(i.name)
 		end
 	end
 
@@ -380,9 +380,10 @@ local function show_main(search)
 	end
 
 	search = search or ""
+	local ln = minetest.formspec_escape(listname)
 	-- Show formspec
 	minetest.show_formspec("savepos_main", get_prepend_string(8, 10) .. [[
-		label[-0.1,-0.33;Search ]]..listname..[[:]
+		label[-0.1,-0.33;Search ]]..ln..[[:]
 		field[0.18,0.3;6.39,1;search;;]]..search..[[]
 		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
@@ -394,7 +395,7 @@ local function show_main(search)
 
 		label[6.5,7.6;]]..count.." "..count_text..[[]
 		button[6.2,8;2,1;rst;Reset]
-		tooltip[rst;Reset ]]..listname..[[ waypoint list]
+		tooltip[rst;Reset ]]..ln..[[ waypoint list]
 		button[6.2,8.75;2,1;change;Change]
 		tooltip[change;Change current list]
 		button_exit[6.2,9.5;2,1;exit;Exit]
@@ -448,8 +449,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle add list formspec submission
 	elseif name == "savepos_add_list" then
 		handle_field("name", fields, function() -- Valid
-			local n = minetest.formspec_escape(fields.name)
-			set_list(n, {})
+			set_list(fields.name, {})
 		end, function() -- Invalid
 			show_add("list", "List Name", nil, "List name cannot be blank")
 		end, function() -- Cancel
@@ -458,10 +458,9 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle rename list formspec submission
 	elseif name == "savepos_rename_list" then
 		handle_field("name", fields, function() -- Valid
-			local n = minetest.formspec_escape(fields.name)
 			local original = get_mapped(get_listnames(), selected)
 			local list = get_list(original)
-			set_list(n, list)
+			set_list(fields.name, list)
 			set_list(original, nil)
 		end, function() -- Invalid
 			show_add("list", "List Name", nil, "List name cannot be blank")
@@ -539,8 +538,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	elseif name == "savepos_add_waypoint" then
 		handle_field("name", fields, function()
 			local pos = vector.round(player:get_pos())
-			local n = minetest.formspec_escape(fields.name)
-			add_list_item(listname, { pos = pos, name = n })
+			add_list_item(listname, { pos = pos, name = fields.name })
 		end, function()
 			show_add("waypoint", "Waypoint Name", nil, "Waypoint name cannot be blank")
 		end, function()
@@ -549,8 +547,7 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle rename waypoint formspec submission
 	elseif name == "savepos_rename_waypoint" then
 		handle_field("name", fields, function()
-			local n = minetest.formspec_escape(fields.name)
-			change_list_item_field(listname, get_mapped_indice(get_list(listname), selected), "name", n)
+			change_list_item_field(listname, get_mapped_indice(get_list(listname), selected), "name", fields.name)
 		end, function()
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name,
 				"New waypoint name cannot be blank")
