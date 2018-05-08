@@ -236,6 +236,7 @@ local function show_lists(search)
 	local lists = get_listnames() -- Get lists
 	local text = ""
 	local count = #lists or 0
+	local waypoint_count = 0
 	local added_index = 0
 	-- Build selection map and format text for use in a table
 	for _, i in ipairs(lists) do
@@ -244,7 +245,16 @@ local function show_lists(search)
 			selected_map[added_index] = _
 			local c = ""
 			if text ~= "" then c = "," end
-			text = text..c..minetest.formspec_escape(i)
+
+			local wcount = #get_list(i) -- Get waypoint count
+			local waypoint_count_text = "Waypoints"
+			-- Use singular form of count text if only 1 waypoint
+			if wcount == 1 then
+				waypoint_count_text = "Waypoint"
+			end
+
+			waypoint_count = waypoint_count + wcount
+			text = text..c..wcount.." "..waypoint_count_text..","..minetest.formspec_escape(i)
 		end
 	end
 
@@ -253,10 +263,16 @@ local function show_lists(search)
 		selected = 1
 	end
 
-	local waypoint_count = 0
-	-- Update waypoint count if selected is less than or equal to count
-	if selected <= count then
-		waypoint_count = #get_list(get_mapped(lists, selected)) or 0
+	local count_text = "Lists"
+	-- Use singular form of count text if only 1 item
+	if count == 1 then
+		count_text = "List"
+	end
+
+	local waypoint_count_text = "Waypoints"
+	-- Use singular form of count text if only 1 waypoint
+	if waypoint_count == 1 then
+		waypoint_count_text = "Waypoint"
 	end
 
 	local action_buttons = [[
@@ -288,13 +304,14 @@ local function show_lists(search)
 		field[0.18,0.3;6.39,1;search;;]]..search..[[]
 		button[6.2,0;2,1;search_button;Search]
 		tooltip[search_button;Search waypoints]
+		tablecolumns[text,width=5;text,width=20]
 		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
 
 		]]..action_buttons..[[
 
-		label[6.5,7.2;]]..count..[[ Lists]
-		label[6.45,7.6;]]..waypoint_count..[[ Waypoints]
+		label[6.7,7.2;]]..count.." "..count_text..[[]
+		label[6.45,7.6;]]..waypoint_count.." "..waypoint_count_text..[[]
 		button[6.2,8;2,1;rst;Reset]
 		tooltip[rst;Reset selected waypoint list]
 		button[6.2,8.75;2,1;rst_all;Reset All]
@@ -324,6 +341,12 @@ local function show_main(search)
 	-- if selected is greater than the total number of items in the list, set selected to 1
 	if selected > count then
 		selected = 1
+	end
+
+	local count_text = "Waypoints"
+	-- Use singular form of count text if only 1 waypoint
+	if count == 1 then
+		count_text = "Waypoint"
 	end
 
 	local action_buttons = [[
@@ -361,7 +384,7 @@ local function show_main(search)
 
 		]]..action_buttons..[[
 
-		label[6.45,7.6;]]..count..[[ Waypoints]
+		label[6.5,7.6;]]..count.." "..count_text..[[]
 		button[6.2,8;2,1;rst;Reset]
 		tooltip[rst;Reset ]]..listname..[[ waypoint list]
 		button[6.2,8.75;2,1;change;Change]
@@ -389,7 +412,6 @@ minetest.register_on_formspec_input(function(name, fields)
 		elseif fields.list then
 			local e = fields.list:split(":")
 			selected = tonumber(e[2])
-			show_lists() -- Update waypoint counter
 			if e[1] == "DCL" and e[3] == "1" then -- Set current list
 				listname = get_mapped(get_listnames(), selected)
 				show_main()
