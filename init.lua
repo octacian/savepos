@@ -3,12 +3,19 @@
 local listname
 local selected = 1
 local selected_map = {} -- Used to understand the selected item when the list is reorganized
+local huds = {}
 local storage = minetest.get_mod_storage()
 
 local player
-minetest.register_on_connect(function()
-	player = minetest.localplayer
-end)
+if minetest.register_on_connect then
+	minetest.register_on_connect(function()
+		player = minetest.localplayer
+	end)
+else
+	minetest.after(0, function()
+		player = minetest.localplayer
+	end)
+end
 
 ---
 --- HELPERS
@@ -55,18 +62,20 @@ local function set_list(name, value)
 end
 
 --[local function] Get the item at a particular indice of a list
---[[local function get_list_item(name, index)
+local function get_list_item(name, index)
 	local list = get_list(name)
 	if list[index] then
 		return list[index]
 	end
-end]]
+end
 
 --[local function] Add an item to a list
 local function add_list_item(name, toadd)
 	local list = get_list(name)
-	list[#list + 1] = toadd
+	local index = #list + 1
+	list[index] = toadd
 	set_list(name, list)
+	return index
 end
 
 --[local function] Remove an item from a list
@@ -119,54 +128,6 @@ end
 --- FUNCTIONS
 ---
 
---[local function] Send a message to the player, colorized to be red
-local function send(msg)
-	minetest.display_chat_message(minetest.colorize("red", "[SavePos]").." "..msg)
-end
-
---[local function] Process any particular indice against the selection map
-local function get_mapped_indice(list, index)
-	local i
-	if selected_map[index] and list[selected_map[index]] then
-		i = selected_map[index]
-	else
-		i = index
-	end
-
-	return i
-end
-
---[local function] Get the item at a particular indice in a list based off of the selected map
--- Shorthand for: i = list[get_mapped_indice(list, selected)]
-local function get_mapped(list, index)
-	return list[get_mapped_indice(list, index)]
-end
-
---[local function] Teleport to the position at a particular indice of the current list
--- Utilizes get_mapped to process the selected indice.
-local function teleport(index)
-	local i = get_mapped(get_list(listname), index)
-
-	if i then
-		local pos  = i.pos
-		local tpos = pos.x.." "..pos.y.." "..pos.z
-		minetest.run_server_chatcommand("teleport", tpos)
-	else
-		send("Could not teleport! Index "..dump(index).." doesn't exist!")
-	end
-end
-
---[local function] Check if there is an error
-local function check_error(message, error_message)
-	-- if there is an error, display it
-	if error_message then
-		return minetest.colorize("red", error_message..":")
-	else -- else, display the default message
-		assert(message, "savepos: check_error: message is nil")
-		return message..":"
-	end
-end
-
 --[local function] Check if a hexidecimal color string is valid
 local function check_color(str)
 	if type(str) ~= "string" or (#str ~= 7 and #str ~= 4) or str:sub(1, 1) ~= "#" then
@@ -194,6 +155,134 @@ local function check_color(str)
 	end
 
 	return true
+end
+
+--[local function] Convert hexadecimal color string to a ColorSpec
+local function hex_to_rgb(str)
+	if check_color(str) then
+		str = str:gsub("#", "")
+
+		-- if only 3 characters, expand by doubling digits
+		if #str == 3 then
+			local new_str = ""
+			for i = 1, #str do
+				new_str = new_str..str:sub(i, i):rep(2)
+			end
+			str = new_str
+		end
+
+		return tonumber("0x00"..str:sub(1, 2)..str:sub(3, 4)..str:sub(5, 6))
+	end
+end
+
+--[local function] Send a message to the player, colorized to be red
+local function send(msg)
+	minetest.display_chat_message(minetest.colorize("red", "[SavePos]").." "..msg)
+end
+
+--[local function] Process any particular indice against the selection map
+local function get_mapped_indice(list, index)
+	local i
+	if selected_map[index] and list[selected_map[index]] then
+		i = selected_map[index]
+	else
+		i = index
+	end
+
+	return i
+end
+
+--[local function] Get the item at a particular indice in a list based off of the selected map
+-- Shorthand for: i = list[get_mapped_indice(list, selected)]
+local function get_mapped(list, index)
+	return list[get_mapped_indice(list, index)]
+end
+
+--[local function] Add waypoint to HUD by list index
+local function hud_add(index)
+	if player.hud_add and not huds[index] then
+		local point = get_list_item(listname, index)
+		-- if HUD is not disabled for this waypoint, add
+		if point.hud ~= false then
+			-- Add internal HUD ID to table
+			huds[index] = player:hud_add({
+				hud_elem_type = "waypoint",
+				name = point.name,
+				text = "m",
+				world_pos = point.pos,
+				number = hex_to_rgb(point.color) or 0x00FFFFFF,
+			})
+
+			return true
+		end
+	end
+end
+
+--[local function] Reload an HUD after its waypoint data has changed
+local function hud_reload(index, name_changed, color_changed, world_pos_changed)
+	if player.hud_add and huds[index] then
+		local point = get_list_item(listname, index)
+		if name_changed then player:hud_change(huds[index], "name", point.name) end
+		if world_pos_changed then player:hud_change(huds[index], "world_pos", point.pos) end
+		if color_changed then player:hud_change(huds[index], "number", hex_to_rgb(point.color) or 0x00FFFFFF) end
+	end
+end
+
+--[local function] Remove waypoint from HUD by the index of its location in the list
+local function hud_remove(index)
+	if player.hud_add and huds[index] then
+		player:hud_remove(huds[index])
+		huds[index] = nil
+		return true
+	end
+end
+
+--[local function] Remove all HUDs
+local function hud_remove_all()
+	if player.hud_add then
+		for _, i in pairs(huds) do
+			player:hud_remove(i)
+			huds[_] = nil
+		end
+	end
+end
+
+--[local function] Teleport to the position at a particular indice of the current list
+-- Utilizes get_mapped to process the selected indice.
+local function teleport(index)
+	local i = get_mapped(get_list(listname), index)
+
+	if i then
+		local pos  = i.pos
+		local tpos = pos.x.." "..pos.y.." "..pos.z
+		minetest.run_server_chatcommand("teleport", tpos)
+	else
+		send("Could not teleport! Index "..dump(index).." doesn't exist!")
+	end
+end
+
+--[local function] Set the current list and attempt to display HUDs
+local function set_listname(index)
+	listname = get_mapped(get_listnames(), index) -- Update listname
+
+	-- Attempt to display HUDs
+	if player.hud_add then
+		local list = get_list(listname)
+		for _, i in pairs(list) do
+			hud_add(_)
+		end
+	end
+end
+
+--[local function] Check if there is an error
+local function check_error(message, error_message)
+	-- if there is an error, display it
+	if error_message then
+		return minetest.colorize("red", error_message..":")
+	else -- else, display the default message
+		assert(message, "savepos: check_error: message is nil")
+		return message..":"
+	end
 end
 
 ---
@@ -422,6 +511,18 @@ local function show_main(search)
 			button[6.2,0.75;2,1;add;Add]
 			tooltip[add;Save current position as a waypoint]
 		]]
+	else -- else, add HUD toggler
+		local item = get_mapped(get_list(listname), selected)
+		if item then
+			local status = "Disable HUD"
+			if item.hud == false then
+				status = "Enable HUD"
+			end
+
+			action_buttons = action_buttons ..
+				"button[6.2,4.5;2,1;toggle_hud;" .. status .. "]" ..
+				"tooltip[toggle_hud;"..status.." for selected waypoint]"
+		end
 	end
 
 	search = search or ""
@@ -467,12 +568,12 @@ minetest.register_on_formspec_input(function(name, fields)
 			local e = fields.list:split(":")
 			selected = tonumber(e[2])
 			if e[1] == "DCL" and e[3] == "1" then -- Set current list
-				listname = get_mapped(get_listnames(), selected)
+				set_listname(selected)
 				show_main()
 			end
 		-- Set current list
 		elseif fields.use then
-			listname = get_mapped(get_listnames(), selected)
+			set_listname(selected)
 			show_main()
 		-- Trigger formspec to add a new list
 		elseif fields.add then
@@ -562,6 +663,7 @@ minetest.register_on_formspec_input(function(name, fields)
 			if e[1] == "DCL" and e[3] == "1" then
 				teleport(selected)
 			end
+			show_main() -- Reload main to update HUD toggler
 		-- Teleport to selected position
 		elseif fields.go then
 			if selected then
@@ -584,12 +686,27 @@ minetest.register_on_formspec_input(function(name, fields)
 		elseif fields.color then
 			local color = get_mapped(get_list(listname), selected).color
 			show_add("color", "Hex Color Value", color)
+		-- Handle per-waypoint HUD toggler
+		elseif fields.toggle_hud then
+			local index = get_mapped_indice(get_list(listname), selected)
+			local current = get_list_item(listname, index).hud
+			change_list_item_field(listname, index, "hud", not current)
+
+			-- if current is false, enable HUD
+			if current == false then
+				hud_add(index)
+			else -- else, disable HUD
+				hud_remove(index)
+			end
+
+			show_main() -- Refresh HUD toggler status
 		-- Trigger confirmation to reset the current list
 		elseif fields.rst then
 			show_confirm("rst", "Are you sure you want to reset the "
 					..listname.." waypoint list?")
 		-- Trigger list management formspec
 		elseif fields.change then
+			hud_remove_all() -- Attempt to remove all HUDs
 			listname = nil
 			show_lists()
 		end
@@ -597,7 +714,8 @@ minetest.register_on_formspec_input(function(name, fields)
 	elseif name == "savepos_add_waypoint" then
 		handle_field("name", fields, function()
 			local pos = vector.round(player:get_pos())
-			add_list_item(listname, { pos = pos, name = fields.name })
+			local index = add_list_item(listname, { pos = pos, name = fields.name, hud = true })
+			hud_add(index) -- Add HUD
 		end, function()
 			show_add("waypoint", "Waypoint Name", nil, "Waypoint name cannot be blank")
 		end, function() show_main() end, function(valid)
@@ -606,7 +724,9 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle rename waypoint formspec submission
 	elseif name == "savepos_rename_waypoint" then
 		handle_field("name", fields, function()
-			change_list_item_field(listname, get_mapped_indice(get_list(listname), selected), "name", fields.name)
+			local index = get_mapped_indice(get_list(listname), selected)
+			change_list_item_field(listname, index, "name", fields.name)
+			hud_reload(index, true) -- Reload HUD
 		end, function()
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name,
 				"New waypoint name cannot be blank")
@@ -616,7 +736,9 @@ minetest.register_on_formspec_input(function(name, fields)
 	-- Handle remove waypoint confirmation
 	elseif name == "savepos_confirm_remove" then
 		handle_confirm(fields, function()
-			remove_list_item(listname, get_mapped_indice(get_list(listname), selected))
+			local index = get_mapped_indice(get_list(listname), selected)
+			remove_list_item(listname, index)
+			hud_remove(index) -- Remove HUD
 			selected = 1
 			show_main()
 		end, nil, function()
@@ -630,8 +752,9 @@ minetest.register_on_formspec_input(function(name, fields)
 			end
 
 			if check_color(fields.name) then
-				change_list_item_field(listname, get_mapped_indice(get_list(listname), selected),
-					"color", fields.name)
+				local index = get_mapped_indice(get_list(listname), selected)
+				change_list_item_field(listname, index, "color", fields.name)
+				hud_reload(index, nil, true)
 				show_main()
 			else
 				show_add("color", "Hex Color Value", fields.name, "Invalid hex color value")
