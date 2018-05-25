@@ -489,18 +489,33 @@ local function show_main(search)
 		count_text = "Waypoint"
 	end
 
-	local action_buttons = [[
-		button_exit[6.2,0.75;2,1;go;Go]
-		tooltip[go;Teleport to selected waypoint]
-		button[6.2,1.5;2,1;add;Add]
-		tooltip[add;Save current position as a waypoint]
-		button[6.2,2.25;2,1;rename;Rename]
-		tooltip[rename;Rename selected waypoint]
-		button[6.2,3;2,1;remove;Remove]
-		tooltip[remove;Remove selected waypoint]
-		button[6.2,3.75;2,1;color;Color]
-		tooltip[color;Set color of selected waypoint]
-	]]
+	-- Starting height for action buttons
+	local btn_height = 0
+	--[local function] Get button height
+	local function btnh()
+		btn_height = btn_height + 0.75
+		return btn_height
+	end
+
+	-- Formstring for go/teleport button
+	local go_button = "button_exit[6.2,"..btnh()..";2,1;go;Go]" ..
+		"tooltip[go;Teleport to selected waypoint]"
+	-- if privileges API is available and player does not have teleport
+	-- privileges, hide go button and shift others up
+	if minetest.get_privilege_list().teleport ~= true then
+		go_button = ""
+		btn_height = 0
+	end
+
+	local action_buttons = go_button ..
+		"button[6.2,"..btnh()..";2,1;add;Add]" ..
+		"tooltip[add;Save current position as a waypoint]" ..
+		"button[6.2,"..btnh()..";2,1;rename;Rename]" ..
+		"tooltip[rename;Rename selected waypoint]" ..
+		"button[6.2,"..btnh()..";2,1;remove;Remove]" ..
+		"tooltip[remove;Remove selected waypoint]" ..
+		"button[6.2,"..btnh()..";2,1;color;Color]" ..
+		"tooltip[color;Set color of selected waypoint]"
 
 	-- if nothing to display and there is text in the search bar, hide action buttons
 	if text == "" and search then
@@ -508,7 +523,7 @@ local function show_main(search)
 	-- elseif there is nothing to display, limit action buttons
 	elseif text == "" or next(list) == nil then
 		action_buttons = [[
-			button[6.2,0.75;2,1;add;Add]
+			button[6.2,"..btnh()..";2,1;add;Add]
 			tooltip[add;Save current position as a waypoint]
 		]]
 	else -- else, add HUD toggler
@@ -520,7 +535,7 @@ local function show_main(search)
 			end
 
 			action_buttons = action_buttons ..
-				"button[6.2,4.5;2,1;toggle_hud;" .. status .. "]" ..
+				"button[6.2,"..btnh()..";2,1;toggle_hud;" .. status .. "]" ..
 				"tooltip[toggle_hud;"..status.." for selected waypoint]"
 		end
 	end
