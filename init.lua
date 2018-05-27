@@ -266,6 +266,8 @@ local function teleport(index)
 
 	if i then
 		local pos  = i.pos
+		send("Attempting to teleport to "..minetest.colorize(i.color or "white", i.name)
+			.." "..minetest.pos_to_string(pos).."...")
 		local tpos = pos.x.." "..pos.y.." "..pos.z
 		minetest.run_server_chatcommand("teleport", tpos)
 	else
