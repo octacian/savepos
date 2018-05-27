@@ -2,6 +2,8 @@
 
 local listname
 local selected = 1
+local sort_order = "A-Z"
+local sort_map = {["A-Z"] = "1", ["Z-A"] = "2", ["Distance"] = "3", ["Date Added"] = "4", ["Date Modified"] = "5"}
 local selected_map = {} -- Used to understand the selected item when the list is reorganized
 local huds = {}
 local storage = minetest.get_mod_storage()
@@ -59,6 +61,16 @@ end
 local function set_list(name, value)
 	if value then value = minetest.serialize(value) end
 	storage:set_string(name, value)
+end
+
+--[local function] Get the contents of a list with keys embedded
+local function get_list_with_keys(name)
+	local list = minetest.deserialize(storage:get_string(name)) or {}
+	for _, i in pairs(list) do
+		list[_].key = _
+	end
+
+	return list
 end
 
 --[local function] Get the item at a particular indice of a list
@@ -285,6 +297,42 @@ local function check_error(message, error_message)
 	end
 end
 
+--[local function] Sort the current waypoint list using global sort_order
+local function sort_list()
+	-- Order map
+	local map = {["0"] = 1, ["1"] = 2, ["2"] = 3, ["3"] = 4, ["4"] = 5, ["5"] = 6, ["6"] = 7,
+		["7"] = 8, ["8"] = 9, ["9"] = 10, a = 11, b = 12, c = 13, d = 14, e = 15, f = 16, g = 17,
+		h = 18, i = 19, j = 20, k = 21, l = 22, m = 23, n = 24, o = 25, p = 26, q = 27, r = 28,
+		s = 29, t = 30, u = 31, v = 32, w = 33, x = 34, y = 35, z = 36}
+
+	-- Get list as "t"
+	local t = get_list_with_keys(listname)
+
+	-- Detect sort order and sort using custom comparison functions
+	local order = sort_map[sort_order]
+	if order == "1" then
+		table.sort(t, function(a, b) return map[a.name:sub(1, 1):lower()] < map[b.name:sub(1, 1):lower()] end)
+	elseif order == "2" then
+		table.sort(t, function(a, b) return map[a.name:sub(1, 1):lower()] > map[b.name:sub(1, 1):lower()] end)
+	elseif order == "3" then
+		local pos = player:get_pos()
+		table.sort(t, function(a, b) return vector.distance(pos, a.pos) < vector.distance(pos, b.pos) end)
+	elseif order == "4" then
+		table.sort(t, function(a, b) return a.added < b.added end)
+	elseif order == "5" then
+		table.sort(t, function(a, b) return a.modified > b.modified end)
+	end
+
+	-- Return iterator function
+	local i = 0
+	return function()
+		i = i + 1
+		if t[i] then
+			return i, t[i]
+		end
+	end
+end
+
 ---
 --- Reusable Formspec Pages
 ---
@@ -458,6 +506,7 @@ end
 
 --[local function] Show main waypoint list management formspec
 local function show_main(search)
+	minetest.log("Showing main...")
 	selected_map = {} -- Reset selection map
 	local pos = player:get_pos()
 	local list = get_list(listname) -- Get current list items
@@ -465,10 +514,10 @@ local function show_main(search)
 	local count = #list or 0
 	local added_index = 0
 	-- Build selection map and format text for use in a table
-	for _, i in ipairs(list) do
+	for _, i in sort_list(list) do
 		if not search or (search and i.name:lower():find(search:lower())) then
 			added_index = added_index + 1
-			selected_map[added_index] = _
+			selected_map[added_index] = i.key
 			local c = ""
 			if text ~= "" then c = "," end
 			local dist = tostring(math.floor(vector.distance(pos, i.pos)))
@@ -490,7 +539,7 @@ local function show_main(search)
 	end
 
 	-- Starting height for action buttons
-	local btn_height = 0
+	local btn_height = 0.75
 	--[local function] Get button height
 	local function btnh()
 		btn_height = btn_height + 0.75
@@ -522,10 +571,8 @@ local function show_main(search)
 		action_buttons = ""
 	-- elseif there is nothing to display, limit action buttons
 	elseif text == "" or next(list) == nil then
-		action_buttons = [[
-			button[6.2,"..btnh()..";2,1;add;Add]
-			tooltip[add;Save current position as a waypoint]
-		]]
+		action_buttons = "button[6.2,1.5;2,1;add;Add]" ..
+			"tooltip[add;Save current position as a waypoint]"
 	else -- else, add HUD toggler
 		local item = get_mapped(get_list(listname), selected)
 		if item then
@@ -551,6 +598,7 @@ local function show_main(search)
 		tablecolumns[color;text,width=2;text,width=2;text,width=2;text,width=2;text,width=20]
 		table[-0.11,0.88;6.2,9.375;list;]]..text..[[;]]..selected..[[]
 		field_close_on_enter[search;false]
+		dropdown[6.2,0.85;1.95;sort;A-Z,Z-A,Distance,Date Added,Date Modified;]]..sort_map[sort_order]..[[]
 
 		]]..action_buttons..[[
 
@@ -724,12 +772,19 @@ minetest.register_on_formspec_input(function(name, fields)
 			hud_remove_all() -- Attempt to remove all HUDs
 			listname = nil
 			show_lists()
+		-- Handle sort dropdown
+		elseif fields.sort then
+			minetest.log(dump(fields.sort))
+			sort_order = fields.sort -- Update sort order
+			show_main() -- Update formspec
 		end
 	-- Handle add waypoint formspec submission
 	elseif name == "savepos_add_waypoint" then
 		handle_field("name", fields, function()
 			local pos = vector.round(player:get_pos())
-			local index = add_list_item(listname, { pos = pos, name = fields.name, hud = true })
+			local time = os.time()
+			local index = add_list_item(listname, { pos = pos, name = fields.name, hud = true,
+				added = time, modified = time })
 			hud_add(index) -- Add HUD
 		end, function()
 			show_add("waypoint", "Waypoint Name", nil, "Waypoint name cannot be blank")
@@ -741,6 +796,7 @@ minetest.register_on_formspec_input(function(name, fields)
 		handle_field("name", fields, function()
 			local index = get_mapped_indice(get_list(listname), selected)
 			change_list_item_field(listname, index, "name", fields.name)
+			change_list_item_field(listname, index, "modified", os.time())
 			hud_reload(index, true) -- Reload HUD
 		end, function()
 			show_rename("waypoint", "Waypoint Name", get_mapped(get_list(listname), selected).name,
@@ -769,6 +825,7 @@ minetest.register_on_formspec_input(function(name, fields)
 			if check_color(fields.name) then
 				local index = get_mapped_indice(get_list(listname), selected)
 				change_list_item_field(listname, index, "color", fields.name)
+				change_list_item_field(listname, index, "modified", os.time())
 				hud_reload(index, nil, true)
 				show_main()
 			else
