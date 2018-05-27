@@ -2,9 +2,11 @@
 
 local listname
 local selected = 1
+local selected_map = {} -- Used to understand the selected item when the list is reorganized
+local lsearch -- Search string for lists formspec
+local wsearch -- Search string for main waypoint formspec
 local sort_order = "A-Z"
 local sort_map = {["A-Z"] = "1", ["Z-A"] = "2", ["Distance"] = "3", ["Date Added"] = "4", ["Date Modified"] = "5"}
-local selected_map = {} -- Used to understand the selected item when the list is reorganized
 local huds = {}
 local storage = minetest.get_mod_storage()
 
@@ -415,7 +417,8 @@ end
 ---
 
 --[local function] Show formspec allowing the management of lists
-local function show_lists(search)
+local function show_lists()
+	local search = lsearch
 	selected_map = {} -- Reset selection map
 	local lists = get_listnames() -- Get lists
 	local text = ""
@@ -507,7 +510,8 @@ local function show_lists(search)
 end
 
 --[local function] Show main waypoint list management formspec
-local function show_main(search)
+local function show_main()
+	local search = wsearch
 	minetest.log("Showing main...")
 	selected_map = {} -- Reset selection map
 	local pos = player:get_pos()
@@ -624,9 +628,11 @@ minetest.register_on_formspec_input(function(name, fields)
 		if fields.search and (fields.key_enter_field == "search" or
 				fields.search_button) then
 			if not fields.search or fields.search == "" then
+				lsearch = nil -- Clear stored search string
 				show_lists()
 			else
-				show_lists(fields.search)
+				lsearch = fields.search -- Update global lsearch variable
+				show_lists() -- Refresh formspec
 			end
 		-- Update selected indice
 		elseif fields.list then
@@ -717,9 +723,11 @@ minetest.register_on_formspec_input(function(name, fields)
 		if fields.search and (fields.key_enter_field == "search" or
 				fields.search_button) then
 			if not fields.search or fields.search == "" then
+				wsearch = nil -- Clear stored search string
 				show_main()
 			else
-				show_main(fields.search)
+				wsearch = fields.search -- Update global wsearch variable
+				show_main() -- Refresh formspec
 			end
 		-- Update selected indice
 		elseif fields.list then
