@@ -1,5 +1,7 @@
 -- savepos/init.lua
 
+local STORAGE_VERSION = 1
+
 local listname
 local selected = 1
 local selected_map = {} -- Used to understand the selected item when the list is reorganized
@@ -39,7 +41,9 @@ local function get_listnames()
 	local l = storage:to_table()
 	local lists = {}
 	for _, i in pairs(l.fields) do
-		lists[#lists + 1] = _
+		if i:sub(1, 2) ~= "__" then
+			lists[#lists + 1] = _
+		end
 	end
 	return lists
 end
@@ -137,6 +141,28 @@ local function get_prepend_string(x, y)
 
 	return "size["..x..","..y.."]" .. background
 end
+
+---
+--- Check storage version
+---
+
+if storage:get_int("__storage_version") ~= STORAGE_VERSION then
+	local names = get_listnames()
+	for _, i in ipairs(names) do
+		local list = get_list(i) -- Fetch list
+		-- Loop through list and add missing fields
+		for __, w in pairs(list) do
+			if not w.hud then w.hud = true end -- Default `hud` to `true`
+			if not w.added then w.added = os.time() end -- Set added to current time
+			if not w.modified then w.modified = os.time() end -- Set modified to current time
+		end
+		set_list(i, list) -- Save updated list
+	end
+
+	-- Change current storage version
+	storage:set_int("__storage_version", STORAGE_VERSION)
+end
+
 
 ---
 --- FUNCTIONS
